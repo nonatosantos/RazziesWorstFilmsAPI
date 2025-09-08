@@ -62,7 +62,7 @@ export class SqliteMovieRepository implements MovieRepository {
             row.title,
             row.studios,
             row.producers,
-            Boolean(row.winner)        
+            Boolean(row.winner)
         );
     }
 }
