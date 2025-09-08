@@ -4,8 +4,8 @@ import { MovieDatabase } from '../infrastructure/database/MovieDatabase';
 import { SqliteMovieRepository } from '../infrastructure/repositories/SqliteMovieRepository';
 import { GetProducerIntervalsUseCase } from '../application/useCases/getProducerIntervals/GetProducerIntervalsUseCase';
 import { InitializeDataUseCase } from '../application/useCases/initializeData/InitializeDataUseCase';
-import { MoviesController } from '../adapters/controllers/MoviesController';
-import { createMoviesRoutes } from '../adapters/routes/moviesRoutes';
+import { ProducersController } from '../adapters/controllers/ProducersController';
+import { createProducersRoutes } from '../adapters/routes/producersRoutes';
 import { AppConfig } from './config';
 
 const app = express();
@@ -19,9 +19,9 @@ const movieRepository = new SqliteMovieRepository(database.getDatabase());
 const initializeDataUseCase = new InitializeDataUseCase(movieRepository);
 const getProducerIntervalsUseCase = new GetProducerIntervalsUseCase(movieRepository);
 
-const moviesController = new MoviesController(getProducerIntervalsUseCase);
+const producersController = new ProducersController(getProducerIntervalsUseCase);
 
-app.use('/api', createMoviesRoutes(moviesController));
+app.use('/api', createProducersRoutes(producersController));
 
 async function initializeApplication(): Promise<void> {
   try {

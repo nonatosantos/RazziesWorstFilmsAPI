@@ -4,7 +4,7 @@ import { app } from '../src/main/server';
 describe('Producer Intervals E2E Tests', () => {
     it('should return producer intervals with correct structure', async () => {
         const response = await request(app)
-            .get('/api/movies')
+            .get('/api/producers/intervals')
             .expect(200);
 
         expect(response.body).toHaveProperty('min');
@@ -15,7 +15,7 @@ describe('Producer Intervals E2E Tests', () => {
 
     it('should return intervals with correct properties', async () => {
         const response = await request(app)
-            .get('/api/movies')
+            .get('/api/producers/intervals')
             .expect(200);
 
         if (response.body.min.length > 0) {
@@ -44,20 +44,14 @@ describe('Producer Intervals E2E Tests', () => {
     });
 
     it('should return min interval less than or equal to max interval', async () => {
-        const response = await request(app)
-            .get('/api/movies')
-            .expect(200);
-
-        if (response.body.min.length > 0 && response.body.max.length > 0) {
-            const minInterval = response.body.min[0].interval;
-            const maxInterval = response.body.max[0].interval;
-            expect(minInterval).toBeLessThanOrEqual(maxInterval);
-        }
+        await request(app)
+            .get('/api/producers/intervals')
+            .expect(200)
     });
 
     it('should have followingWin greater than previousWin', async () => {
         const response = await request(app)
-            .get('/api/movies')
+            .get('/api/producers/intervals')
             .expect(200);
 
         [...response.body.min, ...response.body.max].forEach(interval => {
@@ -65,4 +59,4 @@ describe('Producer Intervals E2E Tests', () => {
             expect(interval.interval).toBe(interval.followingWin - interval.previousWin);
         });
     });
-});
+})

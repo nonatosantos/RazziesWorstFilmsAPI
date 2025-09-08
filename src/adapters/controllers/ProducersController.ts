@@ -1,12 +1,12 @@
 import { Response } from 'express';
 import { GetProducerIntervalsUseCase } from '../../application/useCases/getProducerIntervals/GetProducerIntervalsUseCase';
 
-export class MoviesController {
+export class ProducersController {
     constructor(
         private getProducerIntervalsUseCase: GetProducerIntervalsUseCase
     ) { }
 
-    async getProducerIntervals(res: Response): Promise<void> {
+    async getIntervals(res: Response): Promise<void> {
         try {
             const response = this.getProducerIntervalsUseCase.execute();
             res.json(response);
