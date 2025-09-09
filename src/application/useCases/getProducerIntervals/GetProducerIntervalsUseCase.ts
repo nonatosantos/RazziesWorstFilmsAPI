@@ -8,11 +8,16 @@ interface ProducerInterval {
     followingWin: number;
 }
 
+interface ProducerWin {
+    producer: string;
+    year: number;
+}
+
 export class GetProducerIntervalsUseCase {
     constructor(private movieRepository: MovieRepository) { }
 
     execute(): GetProducerIntervalsResponse {
-        const producerWins = this.movieRepository.findWinnersByProducer();
+        const producerWins = this.findWinnersByProducer();
         const intervals = this.calculateIntervals(producerWins);
 
         if (intervals.length === 0) {
@@ -24,12 +29,42 @@ export class GetProducerIntervalsUseCase {
         return new GetProducerIntervalsResponse(minIntervals, maxIntervals);
     }
 
-    private calculateIntervals(producerWins: any[]): ProducerInterval[] {
+    private findWinnersByProducer(): ProducerWin[] {
+        const winners = this.movieRepository.findWinners();
+        const producerWins: ProducerWin[] = [];
+
+        winners.forEach((winner) => {
+            const producers = winner.producers.split(',');
+
+            producers.forEach((producerGroup: string) => {
+                const individualProducers = producerGroup.split(' and ');
+
+                individualProducers.forEach((producer: string) => {
+                    const trimmedProducer = producer.trim();
+                    if (trimmedProducer && trimmedProducer.length > 0) {
+                        producerWins.push({
+                            producer: trimmedProducer,
+                            year: winner.year
+                        });
+                    }
+                });
+            });
+        });
+
+        return producerWins.sort((a, b) => {
+            if (a.producer === b.producer) {
+                return a.year - b.year;
+            }
+            return a.producer.localeCompare(b.producer);
+        });
+    }
+
+    private calculateIntervals(producerWins: ProducerWin[]): ProducerInterval[] {
         const producerYears = this.groupYearsByProducer(producerWins);
         return this.generateIntervalsFromYears(producerYears);
     }
 
-    private groupYearsByProducer(producerWins: any[]): { [key: string]: number[] } {
+    private groupYearsByProducer(producerWins: ProducerWin[]): { [key: string]: number[] } {
         const producerYears: { [key: string]: Set<number> } = {};
 
         producerWins.forEach(win => {

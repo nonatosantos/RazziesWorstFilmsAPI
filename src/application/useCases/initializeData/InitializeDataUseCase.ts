@@ -7,9 +7,8 @@ export class InitializeDataUseCase {
 
     async execute(): Promise<void> {
         try {
-            const existingMovies = this.movieRepository.findAll();
-            if (existingMovies.length > 0) {
-                console.log('Database already initialized with', existingMovies.length, 'movies');
+            if (this.movieRepository.hasData()) {
+                console.log('Database already initialized with data');
                 return;
             }
 
