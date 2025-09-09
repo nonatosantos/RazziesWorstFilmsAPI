@@ -1,155 +1,92 @@
 import { MovieRepository } from '../../../domain/repositories/MovieRepository';
-import { GetProducerIntervalsResponse, ProducerIntervalResponse } from './GetProducerIntervalsResponse';
-
-interface ProducerInterval {
-    producer: string;
-    interval: number;
-    previousWin: number;
-    followingWin: number;
-}
-
-interface ProducerWin {
-    producer: string;
-    year: number;
-}
+import { ProducerInterval } from './ProducerInterval';
+import { ProducerIntervalsResponse } from './ProducerIntervalsResponse';
 
 export class GetProducerIntervalsUseCase {
     constructor(private movieRepository: MovieRepository) { }
 
-    execute(): GetProducerIntervalsResponse {
-        const producerWins = this.findWinnersByProducer();
-        const intervals = this.calculateIntervals(producerWins);
+    execute(): ProducerIntervalsResponse {
+        const winners = this.movieRepository.findWinners();
+
+        if (winners.length === 0) {
+            return { min: [], max: [] };
+        }
+
+        const intervals = this.calculateIntervals(winners);
 
         if (intervals.length === 0) {
-            return new GetProducerIntervalsResponse([], []);
+            return { min: [], max: [] };
         }
 
-        const { minIntervals, maxIntervals } = this.findMinMaxIntervals(intervals);
-
-        return new GetProducerIntervalsResponse(minIntervals, maxIntervals);
+        return this.findMinMaxIntervals(intervals);
     }
 
-    private findWinnersByProducer(): ProducerWin[] {
-        const winners = this.movieRepository.findWinners();
-        const producerWins: ProducerWin[] = [];
+    private calculateIntervals(winners: { year: number; producers: string }[]): ProducerInterval[] {
+        const producerYears = new Map<string, Set<number>>();
 
-        winners.forEach((winner) => {
-            const producers = winner.producers.split(',');
+        for (const winner of winners) {
+            const producers = this.extractProducers(winner.producers);
 
-            producers.forEach((producerGroup: string) => {
-                const individualProducers = producerGroup.split(' and ');
+            for (const producer of producers) {
+                if (!producerYears.has(producer)) {
+                    producerYears.set(producer, new Set<number>());
+                }
+                producerYears.get(producer)!.add(winner.year);
+            }
+        }
 
-                individualProducers.forEach((producer: string) => {
-                    const trimmedProducer = producer.trim();
-                    if (trimmedProducer && trimmedProducer.length > 0) {
-                        producerWins.push({
-                            producer: trimmedProducer,
-                            year: winner.year
-                        });
-                    }
+        const intervals: ProducerInterval[] = [];
+
+        for (const [producer, yearSet] of producerYears) {
+            if (yearSet.size < 2) continue;
+
+            const years = Array.from(yearSet).sort((a, b) => a - b);
+
+            for (let i = 1; i < years.length; i++) {
+                intervals.push({
+                    producer,
+                    interval: years[i]! - years[i - 1]!,
+                    previousWin: years[i - 1]!,
+                    followingWin: years[i]!
                 });
-            });
-        });
-
-        return producerWins.sort((a, b) => {
-            if (a.producer === b.producer) {
-                return a.year - b.year;
-            }
-            return a.producer.localeCompare(b.producer);
-        });
-    }
-
-    private calculateIntervals(producerWins: ProducerWin[]): ProducerInterval[] {
-        const producerYears = this.groupYearsByProducer(producerWins);
-        return this.generateIntervalsFromYears(producerYears);
-    }
-
-    private groupYearsByProducer(producerWins: ProducerWin[]): { [key: string]: number[] } {
-        const producerYears: { [key: string]: Set<number> } = {};
-
-        producerWins.forEach(win => {
-            if (!producerYears[win.producer]) {
-                producerYears[win.producer] = new Set<number>();
-            }
-
-            const yearSet = producerYears[win.producer];
-            if (yearSet) {
-                yearSet.add(win.year);
-            }
-        });
-
-        const result: { [key: string]: number[] } = {};
-        Object.entries(producerYears).forEach(([producer, yearSet]) => {
-            result[producer] = Array.from(yearSet);
-        });
-
-        return result;
-    }
-
-    private generateIntervalsFromYears(producerYears: { [key: string]: number[] }): ProducerInterval[] {
-        const intervals: ProducerInterval[] = [];
-
-        Object.entries(producerYears).forEach(([producer, years]) => {
-            if (this.hasMultipleWins(years)) {
-                const sortedYears = this.sortYears(years);
-                const producerIntervals = this.createIntervalsForProducer(producer, sortedYears);
-                intervals.push(...producerIntervals);
-            }
-        });
-
-        return intervals;
-    }
-
-    private hasMultipleWins(years: number[]): boolean {
-        return years && years.length >= 2;
-    }
-
-    private sortYears(years: number[]): number[] {
-        return years.sort((a, b) => a - b);
-    }
-
-    private createIntervalsForProducer(producer: string, sortedYears: number[]): ProducerInterval[] {
-        const intervals: ProducerInterval[] = [];
-
-        for (let i = 1; i < sortedYears.length; i++) {
-            const interval = this.createInterval(producer, sortedYears, i);
-            if (interval) {
-                intervals.push(interval);
             }
         }
 
         return intervals;
     }
 
-    private createInterval(producer: string, years: number[], index: number): ProducerInterval | null {
-        const previousYear = years[index - 1];
-        const currentYear = years[index];
+    private extractProducers(producersString: string): string[] {
+        return producersString
+            .split(/,| and /)
+            .map(producer => producer.trim())
+            .filter(producer => producer.length > 0);
+    }
 
-        if (previousYear !== undefined && currentYear !== undefined) {
-            return {
-                producer,
-                interval: currentYear - previousYear,
-                previousWin: previousYear,
-                followingWin: currentYear
-            };
+    private findMinMaxIntervals(intervals: ProducerInterval[]): ProducerIntervalsResponse {
+        let minInterval = intervals[0]!.interval;
+        let maxInterval = intervals[0]!.interval;
+
+        for (const interval of intervals) {
+            if (interval.interval < minInterval) {
+                minInterval = interval.interval;
+            }
+            if (interval.interval > maxInterval) {
+                maxInterval = interval.interval;
+            }
         }
 
-        return null;
-    }
+        const min: ProducerInterval[] = [];
+        const max: ProducerInterval[] = [];
 
-    private findMinMaxIntervals(intervals: ProducerInterval[]): { minIntervals: ProducerIntervalResponse[], maxIntervals: ProducerIntervalResponse[] } {
-        const minInterval = Math.min(...intervals.map(i => i.interval));
-        const maxInterval = Math.max(...intervals.map(i => i.interval));
+        for (const interval of intervals) {
+            if (interval.interval === minInterval) {
+                min.push(interval);
+            }
+            if (interval.interval === maxInterval) {
+                max.push(interval);
+            }
+        }
 
-        const minIntervals = this.filterAndMapIntervals(intervals, minInterval);
-        const maxIntervals = this.filterAndMapIntervals(intervals, maxInterval);
-
-        return { minIntervals, maxIntervals };
-    }
-
-    private filterAndMapIntervals(intervals: ProducerInterval[], targetInterval: number): ProducerIntervalResponse[] {
-        return intervals
-            .filter(i => i.interval === targetInterval)
-            .map(i => new ProducerIntervalResponse(i.producer, i.interval, i.previousWin, i.followingWin));
+        return { min, max };
     }
 }
